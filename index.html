@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Flashcards Révision — Probabilités & Économétrie</title>
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 48px;
+      color: #1e293b;
+    }
+
+    /* ── Header ── */
+    h1 {
+      color: #fff;
+      font-size: clamp(1.3rem, 3vw, 1.8rem);
+      font-weight: 700;
+      letter-spacing: .5px;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      color: #94a3b8;
+      font-size: .85rem;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+      width: 100%;
+      max-width: 680px;
+      padding: 32px 36px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Meta row ── */
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: .82rem;
+      color: #64748b;
+    }
+    .q-label { font-weight: 700; color: #3b82f6; font-size: .95rem; }
+    .score-badge {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-weight: 600;
+      color: #1d4ed8;
+    }
+    .mode-badge {
+      background: #fef3c7;
+      border: 1px solid #fde68a;
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: .75rem;
+      font-weight: 600;
+      color: #92400e;
+      display: none;
+    }
+    .mode-badge.visible { display: inline-block; }
+
+    /* ── Progress bar ── */
+    .progress-wrap {
+      background: #e2e8f0;
+      border-radius: 99px;
+      height: 6px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #6366f1);
+      border-radius: 99px;
+      transition: width .4s ease;
+    }
+
+    /* ── Question text ── */
+    .question-text {
+      font-size: 1.1rem;
+      font-weight: 600;
+      line-height: 1.55;
+      color: #0f172a;
+      min-height: 60px;
+    }
+
+    /* ── Answer buttons ── */
+    .answers { display: flex; flex-direction: column; gap: 10px; }
+    .ans-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #eff6ff;
+      border: 2px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: .95rem;
+      font-weight: 500;
+      color: #1e40af;
+      cursor: pointer;
+      text-align: left;
+      transition: background .15s, border-color .15s, transform .1s;
+    }
+    .ans-btn:hover:not(:disabled) {
+      background: #dbeafe;
+      border-color: #93c5fd;
+      transform: translateX(3px);
+    }
+    .ans-btn:disabled { cursor: default; }
+    .ans-btn .letter {
+      background: #3b82f6;
+      color: #fff;
+      border-radius: 6px;
+      min-width: 28px;
+      height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700;
+      font-size: .85rem;
+      flex-shrink: 0;
+      transition: background .15s;
+    }
+    /* States */
+    .ans-btn.selected { background: #dbeafe; border-color: #3b82f6; }
+    .ans-btn.correct  { background: #dcfce7; border-color: #16a34a; color: #14532d; }
+    .ans-btn.correct .letter { background: #16a34a; }
+    .ans-btn.wrong    { background: #fee2e2; border-color: #dc2626; color: #7f1d1d; }
+    .ans-btn.wrong .letter  { background: #dc2626; }
+
+    /* ── Feedback area ── */
+    .feedback {
+      min-height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: .9rem;
+      padding: 8px 14px;
+      transition: opacity .2s;
+    }
+    .feedback.correct { background: #dcfce7; color: #14532d; }
+    .feedback.wrong   { background: #fee2e2; color: #7f1d1d; }
+    .feedback.hidden  { opacity: 0; }
+
+    /* ── Nav buttons ── */
+    .nav-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 9px 18px;
+      font-size: .88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s;
+    }
+    .btn:hover { opacity: .88; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-primary   { background: #3b82f6; color: #fff; }
+    .btn-ghost     { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+    .btn-reveal    { background: #6366f1; color: #fff; }
+    .btn-error     { background: #f97316; color: #fff; }
+    .btn-danger    { background: #ef4444; color: #fff; }
+    .btn-sheet     { background: #0ea5e9; color: #fff; }
+
+    /* ── Action row (top-level controls) ── */
+    .action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 4px;
+    }
+
+    /* ── Sheet modal ── */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 16px;
+    }
+    .overlay.open { display: flex; }
+    .sheet-box {
+      background: #fff;
+      border-radius: 16px;
+      padding: 28px 30px;
+      max-width: 520px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 24px 60px rgba(0,0,0,.4);
+    }
+    .sheet-box h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 16px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 10px;
+    }
+    .sheet-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .sheet-list li {
+      display: flex;
+      gap: 10px;
+      font-size: .85rem;
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+    .sheet-list li span:first-child { color: #64748b; flex-shrink: 0; width: 90px; }
+    .sheet-list li span:last-child  { font-weight: 600; color: #1e40af; }
+    .sheet-close {
+      margin-top: 18px;
+      width: 100%;
+      padding: 10px;
+      background: #3b82f6;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 32px;
+      color: rgba(255,255,255,.55);
+      font-size: .78rem;
+      text-align: center;
+      letter-spacing: .3px;
+    }
+
+    @media (max-width: 500px) {
+      .card { padding: 22px 18px 20px; }
+      .btn  { padding: 8px 12px; font-size: .82rem; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>📚 Flashcards Révision</h1>
+<p class="subtitle">Probabilités · Espérance · Variance · Géométrie L²</p>
+
+<!-- ── Main card ── -->
+<div class="card">
+
+  <!-- Meta row -->
+  <div class="meta-row">
+    <span class="q-label" id="qLabel">Question n° 1</span>
+    <span class="mode-badge" id="modeBadge">🔁 Mode erreurs</span>
+    <span class="score-badge" id="scoreBadge">Score 0 / 0</span>
+  </div>
+
+  <!-- Progress bar -->
+  <div class="progress-wrap">
+    <div class="progress-bar" id="progressBar" style="width:0%"></div>
+  </div>
+
+  <!-- Question text -->
+  <div class="question-text" id="questionText">Chargement…</div>
+
+  <!-- Answer buttons -->
+  <div class="answers" id="answersBox"></div>
+
+  <!-- Feedback -->
+  <div class="feedback hidden" id="feedback"></div>
+
+  <!-- Nav row -->
+  <div class="nav-row">
+    <button class="btn btn-ghost"    id="btnPrev">◀ Précédente</button>
+    <button class="btn btn-reveal"   id="btnReveal">👁 Voir Réponse</button>
+    <button class="btn btn-primary"  id="btnNext">Suivante ▶</button>
+  </div>
+
+  <!-- Action row -->
+  <div class="action-row">
+    <button class="btn btn-error"  id="btnErrors">🔁 Réviser les erreurs (<span id="errCount">0</span>)</button>
+    <button class="btn btn-sheet"  id="btnSheet">📋 Feuille de réponses</button>
+  </div>
+  <div class="action-row">
+    <button class="btn btn-ghost"  id="btnResetErrors">🗑 Réinit. erreurs</button>
+    <button class="btn btn-danger" id="btnResetAll">⚠ Réinit. Quiz Complet</button>
+  </div>
+
+</div><!-- /card -->
+
+<!-- ── Sheet modal ── -->
+<div class="overlay" id="overlay">
+  <div class="sheet-box">
+    <h2>📋 Feuille de réponses</h2>
+    <ul class="sheet-list" id="sheetList"></ul>
+    <button class="sheet-close" id="sheetClose">Fermer</button>
+  </div>
+</div>
+
+<footer>Nasser Kassioui — Élève en Économétrie des séries temporelles</footer>
+
+<script>
+/* ══════════════════════════════════════════════════
+   DATA — Questions brutes (ordre stable des réponses)
+   correct = index dans answers[] AVANT mélange
+   ══════════════════════════════════════════════════ */
+const RAW_QUESTIONS = [
+  {question:"Quelle est la formule de l'espérance d'une combinaison linéaire ?",answers:["E(aX + bY) = aE(X) + bE(Y)","E(aX + bY) = E(X) + E(Y)","E(aX + bY) = abE(XY)"],correct:0},
+  {question:"La propriété E(aX + bY) = aE(X) + bE(Y) est valable sous quelle condition ?",answers:["Seulement si X et Y sont indépendants","Toujours","Seulement si X et Y sont gaussiens"],correct:1},
+  {question:"La linéarité de l'espérance s'applique :",answers:["Uniquement aux variables indépendantes","Uniquement aux variables centrées","À toutes les variables aléatoires"],correct:2},
+  {question:"Quelle est la formule reliant variance et espérance du carré ?",answers:["Var(X) = E(X²) + [E(X)]²","Var(X) = E(X²) - [E(X)]²","Var(X) = [E(X)]² - E(X²)"],correct:1},
+  {question:"La formule Var(X) = E(X²) - [E(X)]² est valable :",answers:["Seulement si X est gaussienne","Toujours","Seulement si X est centrée"],correct:1},
+  {question:"Si E(X) = 0, alors Var(X) devient :",answers:["E(X²)","[E(X)]²","0"],correct:0},
+  {question:"Quelle propriété caractérise deux variables indépendantes ?",answers:["E(XY) = E(X) + E(Y)","E(XY) = E(X)E(Y)","E(XY) = 0"],correct:1},
+  {question:"La relation E(XY) = E(X)E(Y) est vraie :",answers:["Toujours","Si indépendance","Si covariance nulle uniquement"],correct:1},
+  {question:"Si X et Y ne sont pas indépendantes, alors :",answers:["E(XY) = E(X)E(Y)","E(XY) ≠ forcément E(X)E(Y)","E(XY) = 0"],correct:1},
+  {question:"Quelle est la formule de Var(aX) ?",answers:["aVar(X)","a²Var(X)","Var(X)/a"],correct:1},
+  {question:"Si a = 2, alors Var(2X) vaut :",answers:["2Var(X)","4Var(X)","Var(X)"],correct:1},
+  {question:"La propriété Var(aX) = a²Var(X) est valable :",answers:["Toujours","Seulement si X est indépendante","Seulement si X est centrée"],correct:0},
+  {question:"Quelle est la formule générale de Var(X + Y) ?",answers:["Var(X) + Var(Y)","Var(X) + Var(Y) + 2Cov(X,Y)","Var(XY)"],correct:1},
+  {question:"Si Cov(X,Y) = 0, alors Var(X+Y) devient :",answers:["Var(X) + Var(Y)","Var(XY)","Var(X) - Var(Y)"],correct:0},
+  {question:"Le terme 2Cov(X,Y) mesure :",answers:["La dépendance entre X et Y","La moyenne","La variance de X"],correct:0},
+  {question:"Quelle est l'erreur dans E(X²) = [E(X)]² ?",answers:["C'est toujours vrai","Il manque la variance","C'est vrai seulement si X est indépendante"],correct:1},
+  {question:"Quelle est la bonne formule de E(X²) ?",answers:["E(X²) = Var(X) + [E(X)]²","E(X²) = [E(X)]²","E(X²) = Var(X)"],correct:0},
+  {question:"Pourquoi E(XY) = E(X)E(Y) peut être faux ?",answers:["Parce que X et Y ne sont pas centrées","Parce qu'il faut vérifier l'indépendance","Parce que la variance est nulle"],correct:1},
+  {question:"Quand peut-on écrire E(XY) = E(X)E(Y) ?",answers:["Toujours","Si indépendance","Si covariance est nulle uniquement"],correct:1},
+  {question:"Quelle est l'erreur dans Var(X − Y) = Var(X) − Var(Y) ?",answers:["On oublie la covariance","Il manque un carré","C'est toujours correct"],correct:0},
+  {question:"Quelle est la bonne formule de Var(X − Y) ?",answers:["Var(X) + Var(Y) − 2Cov(X,Y)","Var(X) − Var(Y)","Var(XY)"],correct:0},
+  {question:"Quelle est l'erreur dans Var(aX) = aVar(X) ?",answers:["Il manque un carré sur a","C'est correct","Il faut ajouter une covariance"],correct:0},
+  {question:"Quelle est la bonne formule de Var(aX) ?",answers:["aVar(X)","a²Var(X)","Var(X)/a"],correct:1},
+  {question:"Pourquoi Cov = 0 n'implique pas l'indépendance ?",answers:["Parce que covariance mesure seulement une dépendance linéaire","Parce que les variables sont gaussiennes","Parce que E(XY)=0"],correct:0},
+  {question:"Si X et Y sont indépendantes, alors :",answers:["Cov(X,Y)=0","Cov(X,Y)>0","Cov(X,Y)<0"],correct:0},
+  {question:"Quelle est l'erreur dans 'sauter le développement d'un produit' ?",answers:["On oublie des termes","On simplifie trop","Les deux"],correct:2},
+  {question:"Que faut-il faire lors du développement d'un produit ?",answers:["Écrire tous les termes","Aller plus vite","Utiliser la moyenne"],correct:0},
+  {question:"Pourquoi ne peut-on pas appliquer Pythagore directement ?",answers:["Il faut vérifier Cov = 0","Il faut vérifier E(X)=0","C'est toujours valable"],correct:0},
+  {question:"Quand peut-on utiliser Pythagore (||U+V||²) ?",answers:["Si Cov(U,V)=0","Toujours","Si U=V"],correct:0},
+  {question:"Quelle est l'erreur dans vérifier une seule condition de stationnarité ?",answers:["Une seule condition suffit","Les 3 conditions sont nécessaires","Il n'y a pas de condition"],correct:1},
+  {question:"La stationnarité nécessite :",answers:["1 condition","2 conditions","3 conditions"],correct:2},
+  {question:"Quelle est l'erreur entre σX et σ²X ?",answers:["Ils sont identiques","Ils représentent des choses différentes","Ils sont inversés"],correct:1},
+  {question:"Que représente σX ?",answers:["La variance","L'écart-type","La covariance"],correct:1},
+  {question:"Quelle est l'erreur dans cos²θ + sin²θ ≠ 1 ?",answers:["C'est faux, cette somme vaut toujours 1","C'est vrai seulement en statistique","Cela dépend de θ"],correct:0},
+  {question:"Quelle est la bonne identité trigonométrique ?",answers:["cos²θ + sin²θ = 1","cos²θ − sin²θ = 1","cosθ + sinθ = 1"],correct:0},
+  {question:"Que signifie ⟨u,v⟩ = 0 ?",answers:["u et v sont colinéaires","u et v sont orthogonaux","u et v sont égaux"],correct:1},
+  {question:"Si ⟨u,v⟩ = 0, alors l'angle entre u et v est :",answers:["0°","90°","180°"],correct:1},
+  {question:"Dans L², Cov(X,Y)=0 signifie :",answers:["X et Y sont indépendantes","X et Y sont non corrélées","X = Y"],correct:1},
+  {question:"Que signifie v = λu ?",answers:["u et v sont orthogonaux","u et v sont colinéaires","u et v sont indépendants"],correct:1},
+  {question:"Quelle est la formule de la projection de u sur v ?",answers:["⟨u,v⟩v","(⟨u,v⟩ / ||v||²) v","(||u||² / ⟨u,v⟩) v"],correct:1},
+  {question:"Dans la projection proj_v(u), le terme ||v||² représente :",answers:["La norme de u","La norme de v au carré","La covariance"],correct:1},
+  {question:"La projection de u sur v donne :",answers:["Un scalaire","Un vecteur","Une matrice"],correct:1},
+  {question:"Dans L², la projection correspond à :",answers:["Une moyenne","Un coefficient de régression","Une variance"],correct:1},
+  {question:"Quelle est la formule du coefficient de régression β ?",answers:["Cov(X,Y) × Var(X)","Cov(X,Y) / Var(X)","Var(X) / Cov(X,Y)"],correct:1},
+  {question:"La formule β = Cov(X,Y) / Var(X) correspond à :",answers:["Une variance","Un coefficient de régression","Une moyenne"],correct:1},
+  {question:"Le coefficient β peut aussi s'écrire :",answers:["⟨X,Y⟩ / ||X||²","||X||² / ⟨X,Y⟩","⟨X,X⟩ / ||Y||²"],correct:0},
+  {question:"La régression MCO correspond à :",answers:["Une projection orthogonale","Une dérivation","Une intégrale"],correct:0},
+  {question:"Qu'est-ce qu'un vecteur dans ℝ² ?",answers:["Une fonction","Une flèche définie par ses composantes","Une matrice"],correct:1},
+  {question:"Un vecteur dans ℝⁿ peut être vu comme :",answers:["Une seule valeur","Une liste de nombres","Une équation"],correct:1},
+  {question:"En statistique, une série d'observations correspond à :",answers:["Un scalaire","Un vecteur","Une matrice carrée"],correct:1},
+  {question:"Que mesure la norme d'un vecteur ?",answers:["Sa direction","Sa longueur","Sa variance"],correct:1},
+  {question:"Quelle est la formule de la norme ||u|| ?",answers:["√(u₁² + u₂² + ... + uₙ²)","u₁ + u₂ + ... + uₙ","u₁ × u₂"],correct:0},
+  {question:"Si ||u|| = 0, alors :",answers:["u est constant","u = 0","u est aléatoire"],correct:1},
+  {question:"Dans L², ||X|| correspond à :",answers:["E(X)","√Var(X)","Var(X)"],correct:1},
+  {question:"Dans L², la norme d'une variable centrée est :",answers:["σX","E(X)","Cov(X,Y)"],correct:0},
+  {question:"La norme en L² est liée à :",answers:["La moyenne","La variance","La médiane"],correct:1},
+  {question:"Quelle est la formule du produit scalaire ⟨u,v⟩ ?",answers:["u₁v₁ + u₂v₂ + ... + uₙvₙ","u₁ + v₁","u₁v₂ + u₂v₁"],correct:0},
+  {question:"Le produit scalaire donne :",answers:["Un vecteur","Un scalaire","Une matrice"],correct:1},
+  {question:"Le produit scalaire dépend de :",answers:["Une seule composante","Toutes les composantes","Aucune composante"],correct:1},
+  {question:"Quelle est la relation géométrique du produit scalaire ?",answers:["⟨u,v⟩ = ||u|| ||v|| cos(θ)","⟨u,v⟩ = ||u|| + ||v||","⟨u,v⟩ = cos(θ)"],correct:0},
+  {question:"θ représente :",answers:["La norme","L'angle entre u et v","La variance"],correct:1},
+  {question:"Si θ = 90°, alors ⟨u,v⟩ vaut :",answers:["1","0","∞"],correct:1},
+  {question:"Dans L², ⟨X,Y⟩ correspond à :",answers:["E(XY)","Var(X)","E(X)"],correct:0},
+  {question:"Si X et Y sont centrées, ⟨X,Y⟩ vaut :",answers:["E(XY)","Cov(X,Y)","Var(X)"],correct:1},
+  {question:"Le produit scalaire en stats mesure :",answers:["Une dépendance","Une moyenne","Une probabilité"],correct:0},
+  {question:"En économétrie, à quoi correspond Var(Y) ?",answers:["La variance expliquée","La variance totale","La variance résiduelle"],correct:1},
+  {question:"Dans l'analogie géométrique, l'hypoténuse² correspond à :",answers:["Var(Y)","Var(ε)","Var(Ŷ)"],correct:0},
+  {question:"Var(Y) se décompose en :",answers:["Var(Ŷ) + Var(ε)","Var(Ŷ) × Var(ε)","Var(Ŷ) − Var(ε)"],correct:0},
+  {question:"À quoi correspond Var(ε) en économétrie ?",answers:["La variance expliquée","La variance résiduelle","La variance totale"],correct:1},
+  {question:"Dans l'analogie géométrique, le petit côté² correspond à :",answers:["Var(Ŷ)","Var(Y)","Var(ε)"],correct:2},
+  {question:"Var(ε) mesure :",answers:["L'erreur du modèle","La variance expliquée","La moyenne"],correct:0},
+  {question:"À quoi correspond R² en économétrie ?",answers:["La variance totale","La proportion expliquée","La variance résiduelle"],correct:1},
+  {question:"Dans l'analogie géométrique, cos²θ correspond à :",answers:["R²","Var(ε)","Var(Y)"],correct:0},
+  {question:"R² se calcule comme :",answers:["Var(Ŷ) / Var(Y)","Var(ε) / Var(Y)","Var(Y) / Var(Ŷ)"],correct:0},
+  {question:"Sous quelle condition a-t-on Var(X+Y) = Var(X) + Var(Y) ?",answers:["Si X et Y sont indépendantes","Si Cov(X,Y)=0","Si X et Y ont même variance"],correct:1},
+  {question:"Que signifie Cov(X,Y)=0 dans ce contexte ?",answers:["X et Y sont indépendantes","X et Y sont orthogonales (non corrélées)","X = Y"],correct:1},
+  {question:"Quelle est l'égalité géométrique associée à Cov(X,Y)=0 ?",answers:["||X+Y||² = ||X||² + ||Y||²","||X+Y|| = ||X|| + ||Y||","||X||² = ||Y||²"],correct:0},
+  {question:"Pourquoi le terme 2E(XY) disparaît dans le développement de ||X+Y||² ?",answers:["Parce que X=Y","Parce que E(XY)=0 (orthogonalité)","Parce que Var(X)=0"],correct:1},
+  {question:"Quelle est l'interprétation du R² en géométrie ?",answers:["Le carré de la norme de X","Le carré du cosinus de l'angle entre Y et Ŷ","La variance résiduelle"],correct:1},
+  {question:"Quelle est la relation entre corrélation et angle θ en L² ?",answers:["ρ(X,Y) = cos(θ)","ρ(X,Y) = sin(θ)","ρ(X,Y) = tan(θ)"],correct:0},
+  {question:"Quelle est la formule de la corrélation ρ(X,Y) ?",answers:["Cov(X,Y)","Cov(X,Y) / (σX · σY)","Var(X) / Var(Y)"],correct:1},
+  {question:"Que signifie un angle θ = 90° entre X et Y ?",answers:["Corrélation parfaite positive","Corrélation nulle (non corrélées)","Corrélation négative parfaite"],correct:1},
+  {question:"Que signifie un angle θ = 180° entre X et Y ?",answers:["Corrélation nulle","Corrélation positive parfaite","Corrélation négative parfaite"],correct:2},
+  {question:"Comment interpréter la droite de régression de Y sur X en L² ?",answers:["Comme une moyenne de Y","Comme une projection géométrique de Y sur X","Comme une dérivée de Y"],correct:1},
+  {question:"Que représente le résidu ε = Y − Ŷ ?",answers:["La partie expliquée","La projection de Y","La partie non expliquée par le modèle"],correct:2},
+  {question:"Quelle propriété fondamentale vérifie le résidu ε ?",answers:["Cov(Ŷ, ε) = 0","Var(ε) = 0","E(ε) = 1"],correct:0},
+  {question:"À quoi correspond un vecteur u en probabilités (L²) ?",answers:["Une constante","Une variable aléatoire centrée X","Une matrice"],correct:1},
+  {question:"Un vecteur u représente :",answers:["Un objet de base","Une erreur","Une variance"],correct:0},
+  {question:"En L², travailler avec un vecteur revient à manipuler :",answers:["Une moyenne","Une variable aléatoire","Une dérivée"],correct:1},
+  {question:"Quelle est la formule de la corrélation ρ(X,Y) ? (bis)",answers:["Cov(X,Y)","Cov(X,Y) / (σX · σY)","Var(X) / Var(Y)"],correct:1},
+  {question:"Dans quel intervalle se situe toujours la corrélation ρ ?",answers:["[0,1]","[-1,1]","]-∞,+∞["],correct:1},
+  {question:"Que signifie ρ = 0 ?",answers:["Absence de lien linéaire","Indépendance","Lien négatif parfait"],correct:0},
+  {question:"Pourquoi dit-on que la corrélation est 'sans unité' ?",answers:["Parce qu'elle dépend des unités","Parce qu'elle est normalisée par σX et σY","Parce qu'elle est égale à la variance"],correct:1},
+  {question:"Que mesure la variance d'une variable aléatoire ?",answers:["Sa moyenne","Sa dispersion autour de la moyenne","Sa covariance"],correct:1},
+  {question:"Quelle est la formule de la variance ?",answers:["E(X)","E[(X − E(X))²]","E(X²)"],correct:1},
+  {question:"Une variance élevée signifie :",answers:["Peu de dispersion","Beaucoup de dispersion","Une variable constante"],correct:1},
+  {question:"Si Var(X) = 0, alors :",answers:["X est aléatoire","X est constante","X est indépendante"],correct:1},
+  {question:"Quelle est la formule pratique de la variance ?",answers:["Var(X) = E(X²) − [E(X)]²","Var(X) = E(X²) + [E(X)]²","Var(X) = E(X)"],correct:0},
+  {question:"Comment calcule-t-on la variance avec cette formule ?",answers:["On calcule E(X) puis on multiplie","On calcule E(X²) puis on soustrait [E(X)]²","On calcule Var(X) directement"],correct:1},
+  {question:"Si E(X) = 0, alors Var(X) devient : (bis)",answers:["E(X)","E(X²)","[E(X)]²"],correct:1},
+  {question:"Une variable centrée signifie :",answers:["E(X)=1","E(X)=0","Var(X)=0"],correct:1},
+  {question:"Pourquoi a est au carré dans Var(aX) ?",answers:["Parce que la variance est une moyenne","Parce que les écarts sont au carré","Parce que a est une constante"],correct:1},
+  {question:"Quelle est la formule de Var(X + c) ?",answers:["Var(X) + c","Var(X)","Var(X) × c"],correct:1},
+  {question:"Ajouter une constante à X :",answers:["Change la dispersion","Ne change pas la variance","Change la moyenne et la variance"],correct:1},
+  {question:"Que vaut E(c) pour une constante c ?",answers:["0","c","E(X)"],correct:1},
+  {question:"En général, que vaut E(XY) ?",answers:["E(X)E(Y)","≠ E(X)E(Y)","0"],correct:1},
+  {question:"Quelle est l'erreur classique concernant E(XY) ?",answers:["Oublier la variance","Factoriser sans vérifier l'indépendance","Confondre avec Var(X)"],correct:1},
+];
+
+/* ══════════════════════════════════════════════════
+   STORAGE KEYS
+   ══════════════════════════════════════════════════ */
+const LS = {
+  ERRORS:    'amf_errors',      // Set of original question indices with errors
+  PROGRESS:  'amf_progress',    // { currentIdx, mode, answers:{}, revealed:{} }
+};
+
+/* ══════════════════════════════════════════════════
+   STATE
+   ══════════════════════════════════════════════════ */
+let state = {
+  mode: 'all',       // 'all' | 'errors'
+  deck: [],          // Array of { origIdx, question, shuffledAnswers, correctShuffledIdx }
+  currentPos: 0,     // position in deck
+  answers: {},       // pos -> shuffledIdx chosen
+  revealed: {},      // pos -> true if "Voir réponse" clicked
+  errors: new Set(), // origIdx set
+};
+
+/* ══════════════════════════════════════════════════
+   SHUFFLE helper (Fisher-Yates)
+   ══════════════════════════════════════════════════ */
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* ══════════════════════════════════════════════════
+   BUILD DECK — shuffles answer order per question
+   ══════════════════════════════════════════════════ */
+function buildDeck(origIndices) {
+  return origIndices.map(origIdx => {
+    const q = RAW_QUESTIONS[origIdx];
+    // Create indexed pairs, shuffle, record new position of correct answer
+    const indexed = q.answers.map((txt, i) => ({ txt, origI: i }));
+    const shuffled = shuffleArray(indexed);
+    const correctShuffledIdx = shuffled.findIndex(x => x.origI === q.correct);
+    return {
+      origIdx,
+      question: q.question,
+      shuffledAnswers: shuffled.map(x => x.txt),
+      correctShuffledIdx,
+    };
+  });
+}
+
+/* ══════════════════════════════════════════════════
+   PERSIST & RESTORE
+   ══════════════════════════════════════════════════ */
+function saveState() {
+  try {
+    const prog = {
+      mode: state.mode,
+      currentPos: state.currentPos,
+      answers: state.answers,
+      revealed: state.revealed,
+      // deck stores per-card shuffle info (reproducible)
+      deck: state.deck.map(c => ({
+        origIdx: c.origIdx,
+        shuffledAnswers: c.shuffledAnswers,
+        correctShuffledIdx: c.correctShuffledIdx,
+      })),
+    };
+    localStorage.setItem(LS.PROGRESS, JSON.stringify(prog));
+    localStorage.setItem(LS.ERRORS, JSON.stringify([...state.errors]));
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const errRaw = localStorage.getItem(LS.ERRORS);
+    if (errRaw) state.errors = new Set(JSON.parse(errRaw));
+
+    const progRaw = localStorage.getItem(LS.PROGRESS);
+    if (progRaw) {
+      const prog = JSON.parse(progRaw);
+      state.mode       = prog.mode || 'all';
+      state.currentPos = prog.currentPos || 0;
+      state.answers    = prog.answers  || {};
+      state.revealed   = prog.revealed || {};
+      // Restore deck without re-shuffling (preserve card order/shuffle)
+      if (prog.deck && prog.deck.length) {
+        state.deck = prog.deck.map(c => ({
+          origIdx:           c.origIdx,
+          question:          RAW_QUESTIONS[c.origIdx].question,
+          shuffledAnswers:   c.shuffledAnswers,
+          correctShuffledIdx:c.correctShuffledIdx,
+        }));
+        return; // deck restored, skip rebuild
+      }
+    }
+  } catch(e) {}
+  // Fresh start
+  initDeck();
+}
+
+function initDeck() {
+  const indices = state.mode === 'errors'
+    ? [...state.errors]
+    : RAW_QUESTIONS.map((_, i) => i);
+  state.deck      = buildDeck(indices);
+  state.currentPos= 0;
+  state.answers   = {};
+  state.revealed  = {};
+}
+
+/* ══════════════════════════════════════════════════
+   RENDER
+   ══════════════════════════════════════════════════ */
+const LETTERS = ['A','B','C','D','E'];
+
+function render() {
+  const deck    = state.deck;
+  const pos     = state.currentPos;
+  const card    = deck[pos];
+  const total   = deck.length;
+  const chosen  = state.answers[pos]; // undefined if not answered
+  const shown   = state.revealed[pos];
+
+  /* ── Labels ── */
+  document.getElementById('qLabel').textContent = `Question n° ${pos + 1}`;
+  document.getElementById('modeBadge').classList.toggle('visible', state.mode === 'errors');
+
+  /* ── Progress ── */
+  const pct = total > 0 ? ((pos + 1) / total * 100).toFixed(1) : 0;
+  document.getElementById('progressBar').style.width = pct + '%';
+
+  /* ── Score ── */
+  let correct = 0;
+  Object.entries(state.answers).forEach(([p, si]) => {
+    if (deck[+p] && deck[+p].correctShuffledIdx === si) correct++;
+  });
+  const answered = Object.keys(state.answers).length;
+  document.getElementById('scoreBadge').textContent =
+    `Score ${correct} / ${answered}`;
+
+  /* ── Errors count ── */
+  document.getElementById('errCount').textContent = state.errors.size;
+
+  /* ── Question ── */
+  document.getElementById('questionText').textContent = card.question;
+
+  /* ── Answers ── */
+  const box = document.getElementById('answersBox');
+  box.innerHTML = '';
+  card.shuffledAnswers.forEach((txt, si) => {
+    const btn = document.createElement('button');
+    btn.className = 'ans-btn';
+
+    // Determine state
+    const isChosen  = chosen === si;
+    const isCorrect = si === card.correctShuffledIdx;
+
+    if (shown || chosen !== undefined) {
+      // After reveal or after selection
+      if (shown && isCorrect) btn.classList.add('correct');
+      else if (isChosen && !isCorrect && shown) btn.classList.add('wrong');
+      else if (isChosen && chosen !== undefined && !shown) btn.classList.add('selected');
+    }
+
+    // Disable if answer given or revealed
+    if (chosen !== undefined || shown) btn.disabled = true;
+    else btn.addEventListener('click', () => onAnswer(si));
+
+    btn.innerHTML = `<span class="letter">${LETTERS[si]}</span><span>${txt}</span>`;
+    box.appendChild(btn);
+  });
+
+  /* ── Feedback ── */
+  const fb = document.getElementById('feedback');
+  if (shown) {
+    fb.classList.remove('hidden');
+    const isRight = chosen === card.correctShuffledIdx;
+    if (chosen === undefined) {
+      // revealed without answering
+      fb.className = 'feedback correct';
+      fb.textContent = `✅ Bonne réponse : ${LETTERS[card.correctShuffledIdx]} — ${card.shuffledAnswers[card.correctShuffledIdx]}`;
+    } else if (isRight) {
+      fb.className = 'feedback correct';
+      fb.textContent = '✅ Bonne réponse !';
+    } else {
+      fb.className = 'feedback wrong';
+      fb.textContent = `❌ Mauvaise ! La bonne : ${LETTERS[card.correctShuffledIdx]} — ${card.shuffledAnswers[card.correctShuffledIdx]}`;
+    }
+  } else {
+    fb.className = 'feedback hidden';
+    fb.textContent = '';
+  }
+
+  saveState();
+}
+
+/* ══════════════════════════════════════════════════
+   ANSWER handler
+   ══════════════════════════════════════════════════ */
+function onAnswer(si) {
+  const pos  = state.currentPos;
+  const card = state.deck[pos];
+  state.answers[pos] = si;
+
+  // Track errors
+  const isCorrect = si === card.correctShuffledIdx;
+  if (!isCorrect) {
+    state.errors.add(card.origIdx);
+  } else {
+    // Remove from errors if now correct (optional UX choice)
+    // state.errors.delete(card.origIdx);
+  }
+
+  render();
+}
+
+/* ══════════════════════════════════════════════════
+   NAVIGATION
+   ══════════════════════════════════════════════════ */
+document.getElementById('btnPrev').addEventListener('click', () => {
+  if (state.currentPos > 0) {
+    state.currentPos--;
+    render();
+  }
+});
+
+document.getElementById('btnNext').addEventListener('click', () => {
+  if (state.currentPos < state.deck.length - 1) {
+    state.currentPos++;
+    render();
+  }
+});
+
+document.getElementById('btnReveal').addEventListener('click', () => {
+  const pos  = state.currentPos;
+  const card = state.deck[pos];
+  state.revealed[pos] = true;
+  // If not answered, mark as error
+  if (state.answers[pos] === undefined) {
+    state.errors.add(card.origIdx);
+  }
+  render();
+});
+
+/* ══════════════════════════════════════════════════
+   ERROR MODE
+   ══════════════════════════════════════════════════ */
+document.getElementById('btnErrors').addEventListener('click', () => {
+  if (state.errors.size === 0) {
+    alert('Aucune erreur enregistrée ! Continuez à réviser 🎉');
+    return;
+  }
+  state.mode = 'errors';
+  initDeck();
+  render();
+});
+
+document.getElementById('btnResetErrors').addEventListener('click', () => {
+  if (!confirm('Vider la liste des erreurs ?')) return;
+  state.errors.clear();
+  document.getElementById('errCount').textContent = 0;
+  if (state.mode === 'errors') {
+    state.mode = 'all';
+    initDeck();
+  }
+  saveState();
+  render();
+});
+
+document.getElementById('btnResetAll').addEventListener('click', () => {
+  if (!confirm('Réinitialiser le quiz complet ? (erreurs conservées)')) return;
+  state.mode = 'all';
+  initDeck();
+  render();
+});
+
+/* ══════════════════════════════════════════════════
+   SHEET MODAL
+   ══════════════════════════════════════════════════ */
+document.getElementById('btnSheet').addEventListener('click', () => {
+  const list = document.getElementById('sheetList');
+  list.innerHTML = '';
+  RAW_QUESTIONS.forEach((q, i) => {
+    const li = document.createElement('li');
+    const correct = q.answers[q.correct];
+    li.innerHTML = `<span>Question ${i + 1}</span><span>${correct}</span>`;
+    list.appendChild(li);
+  });
+  document.getElementById('overlay').classList.add('open');
+});
+
+document.getElementById('sheetClose').addEventListener('click', () => {
+  document.getElementById('overlay').classList.remove('open');
+});
+document.getElementById('overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('overlay'))
+    document.getElementById('overlay').classList.remove('open');
+});
+
+/* ══════════════════════════════════════════════════
+   BOOT
+   ══════════════════════════════════════════════════ */
+loadState();
+// If deck is empty (fresh start or mode was errors with 0 errors), init
+if (!state.deck.length) initDeck();
+render();
+</script>
+</body>
+</html>
